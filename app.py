@@ -1,37 +1,68 @@
 # -- coding: utf-8 --
+import copy
 
-response = {'Ответ': 'Который возвращает сервер'}
-
-import fastapi
 import database
 import pydantic_models
 import config
+import fastapi
+from fastapi import Request
 
 api = fastapi.FastAPI()
 
-fake_database = {'users': [
+fake_database = {'users':[
+    {
+        "id":1,
+        "name":"Anna",
+        "nick":"Anny42",
+        "balance": 15300
+     },
 
     {
-        "id": 1,  # число
-        "name": "Anna",  # строка
-        "nick": "Anny42",  # строка
-        "balance": 15300  # int
-    },
+        "id":2,
+        "name":"Dima",
+        "nick":"dimon2319",
+        "balance": 160.23
+     }
+    ,{
+        "id":3,
+        "name":"Vladimir",
+        "nick":"Vova777",
+        "balance": 200.1
+     }
+],}
 
-    {
-        "id": 2,
-        "name": "Dima",
-        "nick": "dimon2319",
-        "balance": 160.23  # float
-    }
-    , {
-        "id": 3,
-        "name": "Vladimir",
-        "nick": "Vova777",
-        "balance": "25000"  # нестандартный тип данных в его балансе
-    }
-], }
 
+@api.put('/user/{user_id}')
+def update_user(user_id: int, user: pydantic_models.User = fastapi.Body()):
+    for index, user_upd in enumerate(fake_database['users']):
+        if user_upd['id'] == user_id:
+            fake_database['users'][index] = user  # обновляем юзера в бд по соответствующему ему индексу из списка users
+            return user
+
+
+@api.delete('/user/{user_id}')
+def delete_user(user_id: int = fastapi.Path()):
+    for index, user_del in enumerate(fake_database['users']):
+        if user_del['id'] == user_id:
+            old_db = copy.deepcopy(fake_database)
+            del  fake_database['users'][index]
+            return {'old_db': old_db,
+                    'new_db': fake_database}
+
+@api.post('/user/create')
+def index(user: pydantic_models.User):
+    """
+        Когда в пути нет никаких параметров
+        и не используются никакие переменные,
+        то fastapi, понимая, что у нас есть аргумент, который
+        надо заполнить, начинает искать его в теле запроса,
+        в данном случае он берет информацию, которую мы ему отправляем
+        в теле запроса и сверяет её с моделью pydantic, если всё хорошо,
+        то в аргумент user будет загружен наш объект, который мы отправим
+        на сервер.
+        """
+    fake_database['users'].append(dict(user))
+    return {'User Created': user}
 
 @api.get('/get_info_by_user_id/{id:int}')
 def get_info_about_user(id):
@@ -41,11 +72,6 @@ def get_info_about_user(id):
 @api.get('/get_user_balance_by_id/{id:int}')
 def get_user_balance(id):
     return fake_database['users'][id - 1]['balance']
-
-
-@api.get('/get_user_name_by_id/{id:int}')
-def get_user_name_by_id(id):
-    return fake_database['users'][id - 1]['name']
 
 
 @api.get('/get_total_balance')
@@ -79,3 +105,5 @@ def read_user(user_id: str, query: str | None = None):
     if query:
         return {"user_id": user_id, "query": query}
     return {"user_id": user_id}
+
+
